@@ -47,3 +47,6 @@ coverage.xml
 # MyPy (static type checker) cache
 .mypy_cache/
 .dmypy.json
+
+# Folders
+audio/
