@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %} Graph-Based Navigation in TedTalks Collection {% endblock title %}
+
+{% block body %}  
+    <ul class="nav">
+        <li>
+            <a href="/userGuide" target="_blank" class="{{ 'isActive' if active_page == 'userGuide' else '' }}">
+                | User Guide |
+            </a>
+        </li>
+    </ul>
+    <div id="user-guide-container">
+        <div id="guide-start">
+            <div class="col-left">
+                <h2>Get started - select a starting point</h2>
+                <p>
+                    <span class="step-count">1. </span>Create a starting point for your exploration by selecting a category.
+                    <br><br>
+                    In this example, we will take a look at "History & Biographies".
+                </p>
+
+                <p>
+                    <span class="step-count">2. </span>After selecting the category, all the available TED Talks within that category will be displayed. <br>
+                    Each talk is represented by a circle (node) with lines (edges) between them. The lines represent the connection, in this case similarity, between two talks.
+                </p>
+            </div>
+
+            <div class="col-right">
+                <img src="../static/img/1.png" alt="Start">
+
+                <img src="../static/img/2.png" alt="Talks, displayed as nodes, inside the category">
+            </div>
+        </div>
+
+        <div id="guide-select-talk">
+            <div class="col-left">
+                <h2>Selecting a talk</h2>
+                <p>
+                    <span class="step-count">3. </span>There are two ways of selecting a talk: you can either click on the "Select random talk" button, in which case one gets selected for you, or you can select a talk manually by clicking on it. <br>
+                    It is recommended to <a href="#user-guide-extras-zoom">zoom in</a> slightly before selecting a talk manually, as it makes the selection easier. <br><br>
+        
+                    After a talk is selected, its details are displayed in the sidebar to the right.
+                </p>
+            </div>
+
+            <div class="col-right">
+                <img src="../static/img/3.png" alt="Selected talk">
+            </div>
+        </div>
+
+        <div id="guide-view-details">
+            <div class="col-left">
+                <h2>View content in the sidebar</h2>
+                <p>
+                    The sidebar contains two parts: a details part and an exploration/navigation part. <br> <br>
+                    All essential details related to the selected talk, such as: title, speaker's name, topic and audio player, are displayed at the top. You can show or hide the transcript by clicking "Show transcript". <br>
+                    Additionally, there is an "Explore connected talks" section. This can be used to navigate talks that are connected to the selected talk.
+                </p>
+            </div>
+
+            <div class="col-right">
+                <img src="../static/img/hide.png" alt="Hide transcript">
+                <img src="../static/img/show.png" alt="Show transcript">
+            </div>
+        </div>
+
+        <div id="guide-explore-talks">
+            <div class="col-left">
+                <h2>Explore connected talks</h2>
+                <h3>Top 3 similar talks</h3>
+                <p>
+                    If the selected talk is connected to other talks, you can either preview or jump directly to one of them. Clicking "View details" shows more information about that talk, and if you're interested, you can switch to it quickly by clicking "Go to talk". <br>
+                    This feature applies to the three most similar talks, ranked from highest to lowest similarity.
+                </p>
+                <h3>Navigate connected talks</h3>
+                <p>
+                    Each talk can have up to 10 connections. You can explore these connections by clicking the "Find similar talk" button. The relevant connection will be highlighted, and the similarity score will be displayed. To switch to the connected talk, click the '"Go to talk" button. <br> <br>
+                    <span class="step-count">Note: </span>Navigation begins with the connection that has the highest similarity score and proceeds in descending order, eventually returning to the first connection.
+                    <br> <br>If you'd like to backtrack, simply click the 'Previous talk' button to return to previously visited talks.
+                </p>
+            </div>
+
+            <div class="col-right">
+                <img style="width: 300px;" src="../static/img/explore.png" alt="Explore connected talks section">
+
+                <img src="../static/img/navigate.png" alt="Talks, displayed as nodes, inside the category">
+            </div>
+        </div>
+
+        <div id="guide-extras">
+            <div class="col-left">
+                <h2>Helpful features</h2>
+                
+                <h3 id="user-guide-extras-zoom">Zooming</h3>
+                <p>
+                    To zoom in or out:
+                    <br>
+                    1. Hover your cursor over the area you want to zoom <br>
+                    2. Use the mouse scroll wheel or a touchpad/trackpad to zoom in or out as usual <br>
+                </p>
+
+                <h3>Dragging (moving)</h3>
+                <p>
+                    The graph can become cluttered rather quickly, but you can rearrange its components by dragging talk-nodes to create a clearer layout. Whenever you move a talk-node, all of its connected components will move along with it <br><br>
+                     To move a talk, simply:
+                    <br>
+                    1. Hover over it with your cursor<br>
+                    2. Click and hold <br>
+                    3. Drag to the desired position
+                </p>
+
+            </div>
+
+            <div class="col-right">
+                <video controls>
+                    <source src="/static/img/demoZoom.mp4" type="video/mp4">
+                    There was an issue loading the video
+                </video>
+
+                <video controls>
+                    <source src="/static/img/demoDrag.mp4" type="video/mp4">
+                    There was an issue loading the video
+                </video>
+            </div>
+        </div>
+    </div>
+{% endblock body %}

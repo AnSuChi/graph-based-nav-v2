@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %} Graph-Based Navigation in TedTalks Collection {% endblock title %}
+
+{% block body %}  
+    <ul class="nav">
+        <li>
+            <a href="/" class="{{ 'isActive' if active_page == 'explore' else '' }}">
+                | Explore TED Talks |
+            </a>
+        </li>
+        <button id="open-guide-btn">
+            <a href="/userGuide" target="_blank" class="{{ 'isActive' if active_page == 'userGuide' else '' }}">
+                Open User Guide
+            </a>
+        </button>
+    </ul>
+    <div style="text-align: center;">
+        <!-- modal window -->
+        <div id="modal-container">
+            <div id="modal-content">
+                <button id="close-modal-btn">X</button>
+                <h3 id="modal-title"></h3>
+                <h3 id="modal-extra"></h3>
+                <h4 id="modal-secondary-title"></h4>
+                <div id="similarity-score-modal-container">
+                    <div style="opacity: 0.7; max-width: 50%; padding-bottom: 1rem;">
+                        <p class="underline-txt" style="max-width: 40%; margin-bottom: 0.5rem;">Similarity Score</p>
+                        <p>How similar this talk is to the one you're currently on</p>
+                    </div>
+                    <p style="padding: 1rem 0 1rem 0;">
+                        Similarity score: <span id="similarity-score-modal">calculating...</span>
+                    </p>
+                    <p>( 0 = The talks are completely unrelated in content or meaning )</p><br>
+                    <p>( 1 = The talks are nearly identical in content and meaning )</p>
+                </div>
+                <div id="transcript-modal-container">
+                    <button class="transcript-btn" id="modal-transcript-btn">
+                        <p><span id="modal-transcript-action">Show</span> transcript</p>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="ionicon" viewBox="0 0 512 512">
+                            <path d="M98 190.06l139.78 163.12a24 24 0 0036.44 0L414 190.06c13.34-15.57 2.28-39.62-18.22-39.62h-279.6c-20.5 0-31.56 24.05-18.18 39.62z"/>
+                        </svg>
+                    </button>
+                    <div>
+                        <textarea id="modal-transcript-area" readonly></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+            <div id="graph-nav-domain">
+                <div id="show-categories-btn-container">
+                    <button id="show-categories-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="ionicon" viewBox="0 0 512 512">
+                            <path d="M98 190.06l139.78 163.12a24 24 0 0036.44 0L414 190.06c13.34-15.57 2.28-39.62-18.22-39.62h-279.6c-20.5 0-31.56 24.05-18.18 39.62z"/>
+                        </svg>
+                    </button>
+                </div>
+                <div id="category-selection-container" style="display: none;">
+                    <h4>CATEGORIES</h4>
+                    <p id="category-msg">Select a category, this will provide a starting point for your exploration!</p>
+                    <button id="close-categories-btn" class="close-btn">X</button>
+                    <div>
+                        <ul id="category-selection"></ul>
+                    </div>
+                </div>
+            
+                <svg height="100%" width="100%" id="graphSvg"></svg>
+
+                <div id="explore-collection-controller">
+                    <h3>Explore the collection</h3>
+                    <button id="selectRandNode-btn">Select random talk</button> <br>
+                </div>
+            </div>
+
+            <div id="node-details-container" class="graph-sidebar">
+                <div id="node-info-container" data-display-node-info="false">
+                    <div id="node-details">
+                        <h2 id="node-title"></h2>
+                        <h3 id="node-speaker"></h3>
+                        <h3 id="node-topic"></h3>
+                    </div>
+                    <audio id="tedTalk-audio" controls data-display-audio="false">
+                        <source type="audio/mpeg">
+                    </audio>      
+                    <div id="transcript-area-container">
+                        <button class="transcript-btn" id="transcript-btn">
+                            <p><span id="transcript-action">Show</span> transcript</p>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="ionicon" viewBox="0 0 512 512">
+                                <path d="M98 190.06l139.78 163.12a24 24 0 0036.44 0L414 190.06c13.34-15.57 2.28-39.62-18.22-39.62h-279.6c-20.5 0-31.56 24.05-18.18 39.62z"/>
+                            </svg>
+                        </button>  
+                        <textarea id="transcript-area" readonly></textarea>
+                    </div>            
+                </div>
+                <div id="secondary-traversal-controller" data-display-controller="false">
+                    <div>
+                        <h3>Explore connected talks</h3>
+                        <p class="bold-txt" id="top-talks-txt"><span id="count-txt">Finding talks...</span></p>
+                        <div id="top-similar-talks-container">
+                        </div>
+                        <div id="traversal-container">
+                            <hr>
+                            <div id="similarity-score-container">
+                                <div class="bold-txt">
+                                    <span>Similarity score: </span><span id="similarity-score">Click "Find similar talk" button</span>
+                                </div>
+                                <br><span>( 0 = The talks are completely unrelated in content or meaning )</span><br>
+                                <br><span>( 1 = The talks are nearly identical in content and meaning )</span>
+                            </div>
+                            <div>
+                                <button id="next-node-btn">
+                                    Find similar talk
+                                </button>
+                                <button id="confirm-node-btn">
+                                    Go to talk
+                                </button>
+                            </div>
+                            <hr>
+                        </div>
+                    </div>
+                    <button id="prev-node-btn">
+                        Previous talk
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='scripts/d3.v7.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='scripts/app.js') }}"></script>
+{% endblock body %}
