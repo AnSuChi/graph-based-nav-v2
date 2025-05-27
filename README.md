@@ -1,1 +1,1 @@
-# Speech_Collection_Navigation_Graph.v1
+# Graph-Based Navigation in Speech Collection v2
