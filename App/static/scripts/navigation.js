@@ -20,7 +20,7 @@ import {
 export let currentNodeIndex = 0;
 let topTalksCount = 3; // warning: remember setting it less than or equal to "connectedNodesLimit" variable!
 let sameNodeSelected = null;
-const audioFolderPath = "/Users/suchi/Personal/Projects/graph-based-nav";
+const audioFolderPath = "/static/audio/";
 
 const secondaryControllerElement = document.getElementById("secondary-traversal-controller");
 const audioSourceElement = document.getElementById("tedTalk-audio");
