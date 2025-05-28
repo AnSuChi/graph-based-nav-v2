@@ -4,10 +4,13 @@
 import { 
     selectRandomNode, 
     navigateSimilarNodes, 
-    resetSidebar, 
     selectNode, 
-    resetTranscript
 } from "./navigation.js"; 
+import { 
+    resetSidebar,
+    resetTranscript,
+    displayTraversalController
+} from "./ui.js"; 
 
 
 
@@ -371,25 +374,6 @@ export function unselectNode(node) {
 // adds data-selected attribute, using the html-element
 export function setSelectedNode(node) {
     d3.select(node.element).attr("data-selected", "true");
-};
-
-
-
-
-// UI
-export function setSimilaritySpanValue(value){
-    document.getElementById("similarity-score").textContent = `${value}`;
-};
-
-export function resetEdgeColors(){
-    d3.selectAll("line")
-    .style("stroke", "black") 
-    .style("stroke-width", edge => edge.weight * ((edge.weight*100) - 10));
-};
-
-function displayTraversalController(){
-    const traversalControllerDiv = document.getElementById("explore-collection-controller");
-    traversalControllerDiv.style.display = "block";
 };
 
 
