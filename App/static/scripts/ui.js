@@ -1,13 +1,6 @@
-import { 
-    getSelectedNode, 
-    getTranscriptData,
-} from "./app.js"; 
-import { 
-    getConnectedNodesList
-} from "./navigation.js"; 
+// GLOBALS
+let showCloseCategoriesBtn = false;
 
-
-// GLOBAL VARIABLES
 const audioFolderPath = "/static/audio/";
 const secondaryControllerElement = document.getElementById("secondary-traversal-controller");
 const audioSourceElement = document.getElementById("tedTalk-audio");
@@ -19,7 +12,71 @@ export const displayControlElements = [
     { element: nodeInfoContainer, key: "displayNodeInfo" },
 ];
 
-export function updateNodeSidebar(data) {
+
+
+
+export function resetTranscript(transcriptTypeVar){
+    let transcriptType = transcriptTypeVar === "modal" ? "modal-" : "";
+
+    const transcriptArea = document.getElementById(`${transcriptType}transcript-area`);
+
+    transcriptArea.style.maxHeight = "0";
+    transcriptArea.style.transition = "max-height 0.4s ease, opacity 0.4s ease";
+    transcriptArea.style.opacity = 0;
+};
+
+export function displayTraversalController(){
+    const traversalControllerDiv = document.getElementById("explore-collection-controller");
+    traversalControllerDiv.style.display = "block";
+};
+
+export function updateCategoryUI(selectedCategory, categoryBtnId){
+    const categoryMsg = document.getElementById("category-msg");
+
+    const categoryBtns = document.querySelectorAll("#category-selection button");
+    categoryBtns.forEach(btn => btn.classList.remove("categorySelectedBtn"));
+    const categoryBtn = document.getElementById(categoryBtnId.toString());
+    categoryBtn.classList.add("categorySelectedBtn");
+
+    categoryMsg.innerText = `Selected category - ${selectedCategory}`;
+};
+
+export function toggleCategories(showCategories){
+    if (showCloseCategoriesBtn === false) {
+        showCloseCategoriesBtn = true;
+    } else {
+        const closeCategoriesBtn = document.getElementById("close-categories-btn");
+        closeCategoriesBtn.style.display = "block";  
+    };
+
+    let categoriesContainer = document.getElementById("category-selection-container");
+    let showCategoriesBtn = document.getElementById("show-categories-btn-container");
+    
+    switch (showCategories) {
+        case false:
+            categoriesContainer.style.display = "none";
+            showCategoriesBtn.style.display = "block";
+            break;
+        case true:
+            categoriesContainer.style.display = "block";
+            showCategoriesBtn.style.display = "none";
+            break;
+        default:
+            break;
+    };
+};
+
+export function setSimilaritySpanValue(value){
+    document.getElementById("similarity-score").textContent = `${value}`;
+};
+
+export function resetEdgeColors(){
+    d3.selectAll("line")
+    .style("stroke", "black") 
+    .style("stroke-width", edge => edge.weight * ((edge.weight*100) - 10));
+};
+
+export function updateNodeSidebar(data, transcript) {
     let titleElement = document.getElementById("node-title");
     let speakerElement = document.getElementById("node-speaker");
     let topicElement = document.getElementById("node-topic");
@@ -32,48 +89,10 @@ export function updateNodeSidebar(data) {
     audioSourceElement.load();    
 
     transcriptAreaDiv.style.display = "block";    
-    toggleTranscript(`${data.identifier}`, "ordinary");
+    toggleTranscript("ordinary", transcript);
 };
 
-export function resetSidebar(){
-   for (let i = 0; i < displayControlElements.length; i++) {
-    let { element, key } = displayControlElements[i];
-        if (element.dataset[key] !== "false") {
-            element.dataset[key] = "false";
-        };
-    };
-};
-
-export function viewTalkDetails(node, talkId){
-    document.body.classList.add('no-scroll');
-
-    const modalContainer = document.getElementById("modal-container");
-    const modalTitle = document.getElementById("modal-title");
-    const modalExtra = document.getElementById("modal-extra");
-    const modalSecondaryTitle = document.getElementById("modal-secondary-title");
-
-    modalTitle.innerText = `| Topic: ${node.topic} |`;
-    modalExtra.innerHTML = `Speaker - ${node.speaker}`;
-    modalSecondaryTitle.innerText = `${node.title}`;
-    setSimilarityModal(talkId);
-
-    modalContainer.style.display = "block";
-
-    toggleTranscript(`${node.identifier}`, "modal");
-};
-
-export function resetTranscript(transcriptTypeVar){
-    let transcriptType = transcriptTypeVar === "modal" ? "modal-" : "";
-
-    const transcriptArea = document.getElementById(`${transcriptType}transcript-area`);
-
-    transcriptArea.style.maxHeight = "0";
-    transcriptArea.style.transition = "max-height 0.4s ease, opacity 0.4s ease";
-    transcriptArea.style.opacity = 0;
-};
-async function toggleTranscript(identifier, transcriptTypeVar){
-    const transcriptData = await getTranscriptData(identifier);
-
+export async function toggleTranscript(transcriptTypeVar, transcript){
     let transcriptType = transcriptTypeVar === "modal" ? "modal-" : "";
 
     const transcriptBtn = document.getElementById(`${transcriptType}transcript-btn`);
@@ -104,27 +123,26 @@ async function toggleTranscript(identifier, transcriptTypeVar){
         }
     });
 
-    transcriptArea.innerText = transcriptData.transcript;
+    transcriptArea.innerText = transcript;
 };
 
-async function setSimilarityModal(talkId){
-    const similarityScore = document.getElementById("similarity-score-modal");
-    similarityScore.innerText = "calculating...";
-
-    let selectedNodeElement = getSelectedNode();
-    if (!selectedNodeElement) return;
-    let nodeData = selectedNodeElement.datum();
-
-    let { edgesList, nodesList } = await getConnectedNodesList(nodeData, connectedNodesLimit);
-    if (edgesList.length === 0 && nodesList.length === 0) return;
-
-    for (let i = 0; i < edgesList.length; i++) {
-        if (talkId === edgesList[i].source || talkId === edgesList[i].target) {
-            similarityScore.innerText = `${edgesList[i].weight}`;
-            return
+export function resetSidebar(){
+   for (let i = 0; i < displayControlElements.length; i++) {
+    let { element, key } = displayControlElements[i];
+        if (element.dataset[key] !== "false") {
+            element.dataset[key] = "false";
         };
     };
 };
+export function showSidebar(){
+    for (let i = 0; i < displayControlElements.length; i++) {
+        let { element, key } = displayControlElements[i];
+        if (element.dataset[key] !== "true") {
+            element.dataset[key] = "true";
+        };
+    };
+};
+
 
 export function closeModal() {
     const modalContainer = document.getElementById("modal-container");
@@ -142,18 +160,41 @@ export function closeModal() {
     }, 100); // 100 = 0.1s
 };
 
-// UI
-export function setSimilaritySpanValue(value){
-    document.getElementById("similarity-score").textContent = `${value}`;
+
+export function setTalkDetails(node){
+    document.body.classList.add('no-scroll');
+
+    const modalContainer = document.getElementById("modal-container");
+    const modalTitle = document.getElementById("modal-title");
+    const modalExtra = document.getElementById("modal-extra");
+    const modalSecondaryTitle = document.getElementById("modal-secondary-title");
+
+    modalTitle.innerText = `| Topic: ${node.topic} |`;
+    modalExtra.innerHTML = `Speaker - ${node.speaker}`;
+    modalSecondaryTitle.innerText = `${node.title}`;
+    modalContainer.style.display = "block";
 };
 
-export function resetEdgeColors(){
-    d3.selectAll("line")
-    .style("stroke", "black") 
-    .style("stroke-width", edge => edge.weight * ((edge.weight*100) - 10));
-};
+export function resetNodes(nodeData){
+    d3.selectAll("g").attr("data-selected", null)
+        .select("circle")
+        .transition().duration(300)
+        .attr("r", 500)
+        .attr("fill", "red");
 
-export function displayTraversalController(){
-    const traversalControllerDiv = document.getElementById("explore-collection-controller");
-    traversalControllerDiv.style.display = "block";
+    d3.selectAll("g").select("text")
+        .text(data => nodeData.title.length > 45 ? nodeData.title.slice(0, 45) + "..." : nodeData.title)
+        .transition().duration(300)
+        .attr("font-size", "40px");
+};
+export function updateSelectedNodeStyle(nodeData, event){
+    d3.select(event).attr("data-selected", "true")
+        .select("circle")
+        .transition().duration(300)
+        .attr("r", 1200);
+
+    d3.select(event).select("text")
+        .text(nodeData.title)
+        .transition().duration(300)
+        .attr("font-size", "100px");
 };

@@ -2,62 +2,284 @@
 
 // IMPORTS
 import { 
-    selectRandomNode, 
-    navigateSimilarNodes, 
-    selectNode, 
+    renderNodeElements,
+    addDragBehaviour,
+    getSelectedNode,
+    unselectNode,
+    setSelectedNode,
+    setSimulation
+} from "./graph.js"; 
+import { 
+    
 } from "./navigation.js"; 
 import { 
-    resetSidebar,
     resetTranscript,
-    displayTraversalController
+    displayTraversalController,
+    updateCategoryUI,
+    toggleCategories,
+    setSimilaritySpanValue,
+    resetEdgeColors,
+    updateNodeSidebar,
+    toggleTranscript,
+    resetSidebar,
+    showSidebar,
+    closeModal,
+    setTalkDetails,
+    resetNodes,
+    updateSelectedNodeStyle
 } from "./ui.js"; 
 
 
-
 // GLOBAL VARIABLES
-let showCloseCategoriesBtn = false;
+const edgePerNode = 2;
+let connectedNodesLimit = 5;
+let topTalksCount = 3; // warning: remember setting it less than or equal to "connectedNodesLimit" variable!
 
-export let connectedNodesLimit = 5;
-export let globalSimulation;
-export let zoomBehaviour;
-export const colorScale = d3.scaleOrdinal()
-  .range(d3.range(280).map(i => {
-    const hue = ((i + 10) * 360 / 230) % 360;
-    const saturation = 0.6 + 0.4 * Math.sin(i * 0.15);  // varies between 0.2 and 1
-    const lightness = 0.45 + 0.1 * Math.cos(i * 0.1);   // varies between 0.35 and 0.55
+let currentNodeIndex = 0;
+let sameNodeSelected = null;
 
-    return d3.hsl(hue, saturation, lightness).toString();
-}));
+let globalSimulation;
+let zoomBehaviour;
 
 
+// EVENT LISTENERS
+document.addEventListener("DOMContentLoaded", async () => {
+    const closeCategoriesBtn = document.getElementById("close-categories-btn");
+    toggleCategories(true);
+    closeCategoriesBtn.style.display = "none";
+    
+    loadCategories();
+    resetTranscript("modal");
+    resetTranscript("ordinary");
+});
+
+document.getElementById("selectRandNode-btn").addEventListener("click", () => {
+    selectRandomNode();
+});
+
+document.getElementById("next-node-btn").addEventListener("click", async () => {
+    let selectedNodeElement = getSelectedNode();
+    if (!selectedNodeElement) return;
+    let nodeData = selectedNodeElement.datum(); 
+
+    const allEdgeElements = d3.selectAll(".edges line");
+    const allNodeElements = d3.selectAll(".nodes g");
+
+    const connectedEdgesList = [];
+
+    allEdgeElements.each(function(edgeData) {
+        if (!edgeData) return;
+
+        const { source, target, weight } = edgeData;
+        const sourceId = source.id || source;
+        const targetId = target.id || target;
+
+        if (sourceId === nodeData.id || targetId === nodeData.id) {
+            connectedEdgesList.push({ source: sourceId, target: targetId, weight });
+        }
+    });
+
+    if (connectedEdgesList.length === 0) return;
+
+    // edge-node pairs, sorted by weight
+    const allNodeData = Array.from(allNodeElements)
+        .map(el => d3.select(el).datum());
+
+    const sortedNodeEdgePairs = connectedEdgesList
+        .map(edge => {
+            const otherNodeId = edge.source === nodeData.id ? edge.target : edge.source;
+            const matchedNode = allNodeData.find(n => n.id === otherNodeId);
+            return matchedNode ? { edge, node: matchedNode } : null;
+        })
+        .filter(pair => pair !== null)
+        .sort((a, b) => b.edge.weight - a.edge.weight); // descending similarity/weight
+
+    const sortedEdges = sortedNodeEdgePairs.map(pair => pair.edge);
+    const sortedNodes = sortedNodeEdgePairs.map(pair => pair.node);
+
+    resetEdgeColors();
+    let nextEdge = navigateSimilarNodesGetEdge(sortedEdges, sortedNodes);
+    setSimilaritySpanValue(nextEdge.weight);
+});
+
+document.getElementById("prev-node-btn").addEventListener("click", () => {
+    let selectedNodeElement = getSelectedNode();
+    let prevNode = trackSelectedNodes.getPrevNode();
+    let prevNodeElement = trackSelectedNodes.getPrevNodeElement();
+
+    if (!prevNode || ! prevNodeElement) return;
+    if (selectedNodeElement.datum().id == prevNode.id) {
+        return;
+    };
+
+    setSelectedNode(prevNodeElement);
+    selectNode({ currentTarget: prevNodeElement }, prevNode, false);
+    resetUI();
+});
+
+document.getElementById("close-categories-btn").addEventListener("click", () => {
+    toggleCategories(false);
+});
+document.getElementById("show-categories-btn").addEventListener("click", () => {
+    toggleCategories(true);
+});
+
+document.getElementById("close-modal-btn").addEventListener("click", () => {
+    closeModal();
+});
 
 
-// HANDLE JSON DATA
-async function fetchJsonData(source) {
-    try {
-        const response = await fetch(source);
-        return await response.json();
-    }
-    catch(error) {
-        console.error("Could not fetch JSON data");
-        return null;
-    }  
+// function for graph traversal
+export function confirmSelectNode(nextNode) {
+    let selectedNodeElement = getSelectedNode();
+    if (!selectedNodeElement) return;
+
+    // get all nodes
+    let nodes = d3.selectAll("g").nodes() 
+        .map(node => ({
+            element: node,
+            data: d3.select(node).datum()
+        }))
+        .filter(node => node.data);
+    if (nodes.length === 0) return;
+
+    // find the node that matches nextNode data
+    let matchingNode = nodes.find(node => node.data.id == nextNode.id);
+    if (!matchingNode) return;
+
+    unselectNode(selectedNodeElement);
+    setSelectedNode(matchingNode.element);
+    selectNode({ currentTarget: matchingNode.element }, matchingNode.data, true);
+    resetUI();
 };
-export async function getJsonData(jsonDataType) {
-    // jsonDataType must be either "nodes" or "edges"
-    const data = await fetchJsonData(`/data/${jsonDataType}.json`);
-    if (!data) return null;
-    return data;
+
+export function navigateSimilarNodesGetEdge(edgesList, nodesList){
+    let nextNode = nodesList[currentNodeIndex];
+    let nextEdgeData = edgesList[currentNodeIndex];
+    if (!nextNode || !nextEdgeData) return;
+
+    // highlight the edge
+    d3.select(".edges").selectAll("line")
+        .style("stroke", "black") 
+        .filter(d => 
+            (d.source.id === nextEdgeData.source && d.target.id === nextEdgeData.target) || 
+            (d.source.id === nextEdgeData.target && d.target.id === nextEdgeData.source)
+        )
+        .style("stroke", "red")
+        .style("stroke-width", edge => edge.weight * ((edge.weight*300)))
+        .each(function() {
+            this.parentNode.appendChild(this); // bring edge to front
+        });
+  
+    currentNodeIndex = (currentNodeIndex + 1) % edgesList.length;
+
+    let confirmBtn = document.getElementById("confirm-node-btn");
+    confirmBtn.replaceWith(confirmBtn.cloneNode(true)); // remove old listener
+    confirmBtn = document.getElementById("confirm-node-btn");
+
+    confirmBtn.addEventListener("click", () => {
+        confirmSelectNode(nextNode);
+
+        d3.selectAll("line")
+            .filter(d => 
+                (d.source.id === nextEdgeData.source && d.target.id === nextEdgeData.target) || 
+                (d.source.id === nextEdgeData.target && d.target.id === nextEdgeData.source)
+            )
+            .style("stroke", "black");
+    }, { once: true });
+
+    return nextEdgeData;
 };
-export async function getTranscriptData(identifier) {
-    const transcriptData = await fetchJsonData(`/data/transcripts/${identifier}.json`);
-    if (!transcriptData) return null;
-    return transcriptData;
+
+
+export async function getConnectedNodesList(nodeData, listLimit) {
+    const nodesData = await getJsonData("nodes");
+    const edgesData = await getJsonData("edges");
+    if (!nodesData) return { edgesList: [], nodesList: [] };
+
+    let strongConnections = edgesData.edges
+        .filter(edge => (edge.source == nodeData.id) || (edge.target == nodeData.id));
+
+    let edgesList = strongConnections.slice(0, listLimit);
+
+    let nodesList = edgesList.map(edge => 
+        nodesData.nodes.find(node => node.id === (edge.source === nodeData.id ? edge.target : edge.source))
+    );
+
+    return { edgesList, nodesList };
+};
+
+async function getMostSimilarNodes(count){
+    let selectedNodeElement = getSelectedNode();
+    if (!selectedNodeElement) return;
+
+    let nodeData = selectedNodeElement.datum();
+    let { edgesList, nodesList } = await getConnectedNodesList(nodeData, count);
+    if (edgesList === undefined || nodesList === undefined) return;
+
+    let countSpan = document.getElementById("count-txt");
+    const traversalContainerDiv = document.getElementById("traversal-container");
+    if (nodesList.length <= 0) {
+        countSpan.style.color = "#ff9752";
+        traversalContainerDiv.style.display = "none";
+        countSpan.textContent = `This talk doesn't share a meaningful similarity score with any other talks`;
+    } else {
+        countSpan.style.color = "#ffffff";
+        traversalContainerDiv.style.display = "block";
+        countSpan.textContent = `Top ${nodesList.length} similar talks`;  
+    };
+
+    let topTalksContainer = document.getElementById("top-similar-talks-container");
+    topTalksContainer.innerHTML = "";
+
+    for (let i = 0; i < nodesList.length; i++) {    
+        const nextTalkDiv = document.createElement("div");
+        nextTalkDiv.className = "next-talk";
+        nextTalkDiv.id = `talk-${nodesList[i].id}`;
+      
+        const nodeTitleP = document.createElement("p");
+        nodeTitleP.textContent = `" ${nodesList[i].title} "`;
+        nodeTitleP.className = "next-talk-title";
+      
+        const nextTalkBtn = document.createElement("button");
+        nextTalkBtn.textContent = "Go to talk";
+        nextTalkBtn.id = `talk-${nodesList[i].id}-btn`;
+        nextTalkBtn.className = "next-talk-btn";
+
+        const talkDetailsBtn = document.createElement("button");
+        talkDetailsBtn.textContent = "View details";
+        talkDetailsBtn.id = `details-talk-${nodesList[i].id}-btn`;
+        talkDetailsBtn.className = "next-talk-btn";
+
+        nextTalkDiv.appendChild(nodeTitleP);
+        nextTalkDiv.appendChild(nextTalkBtn);
+        nextTalkDiv.appendChild(talkDetailsBtn);
+      
+        topTalksContainer.appendChild(nextTalkDiv);
+
+        document.getElementById(`talk-${nodesList[i].id}-btn`).addEventListener("click", () => {
+            confirmSelectNode(nodesList[i]);
+        });
+        document.getElementById(`details-talk-${nodesList[i].id}-btn`).addEventListener("click", () => {
+            viewTalkDetails(nodesList[i], nodesList[i].id);
+        });
+    };      
+};
+
+export async function viewTalkDetails(node, talkId){
+    const transcriptData = await getTranscriptData(`${node.identifier}`);
+
+    setTalkDetails(node);
+    setSimilarityModal(talkId);
+    toggleTranscript("modal", transcriptData.transcript);
 };
 
 
 
 
+// ------------ FROM HERE ------------
+
+// GLOBALS
 // TRACK SELECTED NODE
 export const trackSelectedNodes = (() => {
     let prevNodesList = [];
@@ -114,11 +336,32 @@ export const trackSelectedNodes = (() => {
 
 
 
-// GRAPH
-async function initializeGraph(nodesData) {
-    const edgePerNode = 2;
+// HANDLE JSON DATA
+async function fetchJsonData(source) {
+    try {
+        const response = await fetch(source);
+        return await response.json();
+    }
+    catch(error) {
+        console.error("Could not fetch JSON data");
+        return null;
+    }  
+};
+export async function getJsonData(jsonDataType) {
+    // jsonDataType must be either "nodes" or "edges"
+    const data = await fetchJsonData(`/data/${jsonDataType}.json`);
+    if (!data) return null;
+    return data;
+};
+export async function getTranscriptData(identifier) {
+    const transcriptData = await fetchJsonData(`/data/transcripts/${identifier}.json`);
+    if (!transcriptData) return null;
+    return transcriptData;
+};
 
-    const edgesData = await getJsonData("edges");
+
+// GRAPH
+async function initializeGraph(nodesData, edgesData) {
     const nodeIds = new Set(nodesData.nodes.map(node => node.id));
     const nodeEdgeCounts = new Map();
     const registeredEdgeKeys = new Set();
@@ -176,16 +419,7 @@ async function initializeGraph(nodesData) {
     svg.call(zoomBehaviour);
     svg.transition().duration(500).call(zoomBehaviour.transform, initialTransform);
 
-    const simulation = d3.forceSimulation(nodesData.nodes)
-        .force("link", d3.forceLink(limitedEdges)
-            .id(node => node.id)
-            .distance(5000)
-        )
-        .force("charge", d3.forceManyBody()) 
-        .force("collide", d3.forceCollide(2500))
-        .force("center", d3.forceCenter(width / 2, height / 2));
-    
-
+    let simulation = setSimulation(nodesData.nodes, limitedEdges, width, height);
     globalSimulation = simulation;
 
     const edges = edgeLayer.selectAll("line")
@@ -215,6 +449,7 @@ async function initializeGraph(nodesData) {
 
     nodes.on("click", (event, node) => {
         selectNode(event, node, true);
+        resetUI();
     });    
 
     toggleCategories(false);
@@ -288,6 +523,8 @@ export async function addRelatedNodes(selectedNode, simulation, edgesData, nodes
         .style("opacity", 0)
         .on("click", (event, d) => selectNode(event, d, true))
 
+    resetUI();
+
     renderNodeElements(newNodes);
     addDragBehaviour(newNodes);
 
@@ -321,92 +558,12 @@ export async function addRelatedNodes(selectedNode, simulation, edgesData, nodes
     }, 800); // match transition duration
 };
 
-function renderNodeElements(nodes){
-    nodes.append("circle")
-        .attr("r", 500)
-        .attr("fill", node => colorScale(node.topic))
-        .attr("stroke", "black")
-        .attr("stroke-width", 2);
 
-    nodes.append("text")
-        .text(node => node.title.length > 45 ? node.title.slice(0, 45) + "..." : node.title)
-        .attr("text-anchor", "middle")
-        .attr("dy", "0.35em")
-        .attr("fill", "white")
-        .attr("font-size", "40px")
-        .attr("font-weight", "bold");
-};
-function addDragBehaviour(nodes){
-    nodes.call(d3.drag()
-            .on("start", (event, node) => dragStart(event, node, globalSimulation))
-            .on("drag", (event, node) => dragged(event, node))
-            .on("end", (event, node) => dragEnd(event, node, globalSimulation))
-    );
-};
-
-function dragStart(event, node, simulation) {
-    if (!event.active) simulation.alphaTarget(1).restart();
-    node.fx = node.x;
-    node.fy = node.y;
-};
-function dragged(event, node) {
-    node.fx = event.x;
-    node.fy = event.y;
-};
-function dragEnd(event, node, simulation) {
-    if (!event.active) simulation.alphaTarget(0);
-    node.fx = null;
-    node.fy = null;
-};
-
-
-// returns an array containing currently selected node and its data: [selectedNode, data]
-export function getSelectedNode() {
-    let selectedNode = d3.select("g[data-selected='true']");
-    if (!selectedNode) return;
-
-    return selectedNode;
-};
-// removes data-selected attribute on the "node" html-element
-export function unselectNode(node) {
-    node.attr("data-selected", null);
-};
-// adds data-selected attribute, using the html-element
-export function setSelectedNode(node) {
-    d3.select(node.element).attr("data-selected", "true");
-};
-
-
-
-
-// CATEGORIES
-export function toggleCategories(showCategories){
-    if (showCloseCategoriesBtn === false) {
-        showCloseCategoriesBtn = true;
-    } else {
-        const closeCategoriesBtn = document.getElementById("close-categories-btn");
-        closeCategoriesBtn.style.display = "block";  
-    };
-
-    let categoriesContainer = document.getElementById("category-selection-container");
-    let showCategoriesBtn = document.getElementById("show-categories-btn-container");
-    
-    switch (showCategories) {
-        case false:
-            categoriesContainer.style.display = "none";
-            showCategoriesBtn.style.display = "block";
-            break;
-        case true:
-            categoriesContainer.style.display = "block";
-            showCategoriesBtn.style.display = "none";
-            break;
-        default:
-            break;
-    };
-};
 async function loadCategories(){
+    const categoriesJson = await fetchJsonData("/data/categories.json");
+    const allNodes = await getJsonData("nodes");
+
     const categoriesUl = document.getElementById("category-selection");
-    let categoriesJson = await fetchJsonData("/data/categories.json");
 
     Object.keys(categoriesJson).sort().forEach((category, index) => {
         let li = document.createElement("li");
@@ -414,21 +571,14 @@ async function loadCategories(){
         let categorySelectBtn = document.createElement("button");
         categorySelectBtn.id = `category-${index}-btn`;
         categorySelectBtn.textContent = category;
-        categorySelectBtn.onclick = () => getTalksFromCategory(categoriesJson[category], category, categorySelectBtn.id); 
+        categorySelectBtn.onclick = () => getTalksFromCategory(categoriesJson[category], category, categorySelectBtn.id, allNodes); 
 
         li.appendChild(categorySelectBtn);
         categoriesUl.appendChild(li);
     });
 };
-
-async function getTalksFromCategory(categoryData, selectedCategory, categoryBtnId) {
-    const allNodes = await getJsonData("nodes");
-    const categoryMsg = document.getElementById("category-msg");
-
-    const categoryBtns = document.querySelectorAll("#category-selection button");
-    categoryBtns.forEach(btn => btn.classList.remove("categorySelectedBtn"));
-    const categoryBtn = document.getElementById(categoryBtnId.toString());
-    categoryBtn.classList.add("categorySelectedBtn");
+async function getTalksFromCategory(categoryData, selectedCategory, categoryBtnId, allNodes) {
+    const edgesData = await getJsonData("edges");
 
     const identifiersSet = new Set(
         categoryData.map(filename => filename.replace(".stm", ""))
@@ -437,93 +587,102 @@ async function getTalksFromCategory(categoryData, selectedCategory, categoryBtnI
         identifiersSet.has(node.identifier)
     );
 
-    categoryMsg.innerText = `Selected category - ${selectedCategory}`;
-
-    initializeGraph({ nodes: relevantNodes });
+    updateCategoryUI(selectedCategory, categoryBtnId);
+    initializeGraph({ nodes: relevantNodes }, edgesData);
+    
     trackSelectedNodes.reset();
+
     resetTranscript("ordinary")
     resetSidebar();
     displayTraversalController();
 };
 
 
+// SELECT FUNCTIONS
+export async function selectNode(event, nodeData, addToListIsTrue) {
+    const transcriptData = await getTranscriptData(`${nodeData.identifier}`);
 
+    currentNodeIndex = 0;
 
-// EVENT LISTENERS
-document.addEventListener("DOMContentLoaded", async () => {
-    const closeCategoriesBtn = document.getElementById("close-categories-btn");
-    toggleCategories(true);
-    closeCategoriesBtn.style.display = "none";
+    if (sameNodeSelected === nodeData) return;
+    sameNodeSelected = nodeData;
+
+    trackSelectedNodes.addNode(nodeData, addToListIsTrue);
+    trackSelectedNodes.addNodeElement(event.currentTarget, addToListIsTrue)
+
+    resetNodes(nodeData);
+    updateSelectedNodeStyle(nodeData, event.currentTarget);
+
+    let graphContainer = document.getElementById("graph-nav-domain"); 
+    let width = graphContainer.clientWidth;
+    let height = graphContainer.clientHeight;
+
+    const scale = 0.025;
+    const { x, y } = d3.select(event.currentTarget).datum();
+    const newX = (width / 2) - (x * scale);
+    const newY = (height / 2) - (y * scale);
     
-    loadCategories();
-    resetTranscript("modal");
-    resetTranscript("ordinary");
-});
+    const svg = d3.select("#graphSvg");
+    const transform = d3.zoomIdentity.translate(newX, newY).scale(scale);
+    await svg.transition().duration(800).call(zoomBehaviour.transform, transform);    
 
-document.getElementById("selectRandNode-btn").addEventListener("click", () => {
-    selectRandomNode();
-});
-
-document.getElementById("next-node-btn").addEventListener("click", async () => {
-    let selectedNodeElement = getSelectedNode();
-    if (!selectedNodeElement) return;
-    let nodeData = selectedNodeElement.datum(); 
-
-    const allEdgeElements = d3.selectAll(".edges line");
-    const allNodeElements = d3.selectAll(".nodes g");
-
-    const connectedEdgesList = [];
-
-    allEdgeElements.each(function(edgeData) {
-        if (!edgeData) return;
-
-        const { source, target, weight } = edgeData;
-        const sourceId = source.id || source;
-        const targetId = target.id || target;
-
-        if (sourceId === nodeData.id || targetId === nodeData.id) {
-            connectedEdgesList.push({ source: sourceId, target: targetId, weight });
-        }
-    });
-
-    if (connectedEdgesList.length === 0) return;
-
-    // edge-node pairs, sorted by weight
-    const allNodeData = Array.from(allNodeElements)
-        .map(el => d3.select(el).datum());
-
-    const sortedNodeEdgePairs = connectedEdgesList
-        .map(edge => {
-            const otherNodeId = edge.source === nodeData.id ? edge.target : edge.source;
-            const matchedNode = allNodeData.find(n => n.id === otherNodeId);
-            return matchedNode ? { edge, node: matchedNode } : null;
-        })
-        .filter(pair => pair !== null)
-        .sort((a, b) => b.edge.weight - a.edge.weight); // descending similarity/weight
-
-    const sortedEdges = sortedNodeEdgePairs.map(pair => pair.edge);
-    const sortedNodes = sortedNodeEdgePairs.map(pair => pair.node);
-
-    navigateSimilarNodes(sortedEdges, sortedNodes);
-});
-
-document.getElementById("prev-node-btn").addEventListener("click", () => {
-    let selectedNodeElement = getSelectedNode();
-    let prevNode = trackSelectedNodes.getPrevNode();
-    let prevNodeElement = trackSelectedNodes.getPrevNodeElement();
-
-    if (!prevNode || ! prevNodeElement) return;
-    if (selectedNodeElement.datum().id == prevNode.id) {
-        return;
+    if (globalSimulation) {
+        const edgesData = await getJsonData("edges");
+        const nodesData = await getJsonData("nodes");
+        await addRelatedNodes(nodeData, globalSimulation, edgesData, nodesData);
     };
 
-    setSelectedNode(prevNodeElement);
-    selectNode({ currentTarget: prevNodeElement }, prevNode, false);
-});
+    updateNodeSidebar(nodeData, transcriptData.transcript);
+    getMostSimilarNodes(topTalksCount);
 
-document.getElementById("close-categories-btn").addEventListener("click", () => {
+    return event.currentTarget;
+};
+export function selectRandomNode() {
+    const nodes = d3.selectAll("g").nodes(); 
+    if (nodes.length === 0) return; 
+
+    let randomNode;
+    let data;
+
+    do {
+        let randomIndex = Math.floor(Math.random() * nodes.length);
+        randomNode = d3.select(nodes[randomIndex]); // select random node
+        data = randomNode.datum();
+    } while (!data);
+
+    // call selectedNode
+    selectNode({ currentTarget: randomNode.node() }, data, true);
+    resetUI();
+};
+
+
+// HELPER FUNCTIONS
+function resetUI(){
+    setSimilaritySpanValue('Click "Find similar talk"');
+    resetEdgeColors();
     toggleCategories(false);
-});
-document.getElementById("show-categories-btn").addEventListener("click", () => {
-    toggleCategories(true);
-});
+
+    showSidebar();
+};
+
+async function setSimilarityModal(talkId){
+    const similarityScore = document.getElementById("similarity-score-modal");
+    similarityScore.innerText = "calculating...";
+
+    let selectedNodeElement = getSelectedNode();
+    if (!selectedNodeElement) return;
+    let nodeData = selectedNodeElement.datum();
+
+    let { edgesList, nodesList } = await getConnectedNodesList(nodeData, connectedNodesLimit);
+    if (edgesList.length === 0 && nodesList.length === 0) return;
+
+    for (let i = 0; i < edgesList.length; i++) {
+        if (talkId === edgesList[i].source || talkId === edgesList[i].target) {
+            similarityScore.innerText = `${edgesList[i].weight}`;
+            return
+        };
+    };
+};
+
+
+console.log("FIX -- circular import");
