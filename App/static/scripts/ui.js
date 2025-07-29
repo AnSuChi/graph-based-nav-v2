@@ -75,6 +75,16 @@ export function resetEdgeColors(){
     .style("stroke", "black") 
     .style("stroke-width", edge => edge.weight * ((edge.weight*100) - 10));
 };
+export function highlightSearchRelevantNode(){
+    d3.selectAll("circle")
+    .style("stroke", "blue") 
+    .style("stroke-width", 200);
+};
+export function resetSearchHighlightedNode(){
+    d3.selectAll("circle")
+    .style("stroke", "yellow") 
+    .style("stroke-width", 200);
+};
 
 export function updateNodeSidebar(data, transcript) {
     let titleElement = document.getElementById("node-title");

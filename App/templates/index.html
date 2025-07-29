@@ -48,6 +48,20 @@
         </div>
         <div style="display: flex; justify-content: space-between;">
             <div id="graph-nav-domain">
+                <div id="search-container">
+                    <div id="search-svg">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="ionicon" viewBox="0 0 512 512">
+                            <path d="M464 428L339.92 303.9a160.48 160.48 0 0030.72-94.58C370.64 120.37 298.27 48 209.32 48S48 120.37 48 209.32s72.37 161.32 161.32 161.32a160.48 160.48 0 0094.58-30.72L428 464zM209.32 319.69a110.38 110.38 0 11110.37-110.37 110.5 110.5 0 01-110.37 110.37z"/>
+                        </svg>
+                    </div>
+                    <input type="text" id="search-input" name="searchInput" placeholder="Search...">
+                    <div id="search-result-container">
+                        <p>
+                            Results: <span id="search-count">0</span>
+                        </p>
+                    </div>
+                </div>
+
                 <div id="show-categories-btn-container">
                     <button id="show-categories-btn">
                         <svg xmlns="http://www.w3.org/2000/svg" class="ionicon" viewBox="0 0 512 512">
@@ -104,8 +118,6 @@
                                 <div class="bold-txt">
                                     <span>Similarity score: </span><span id="similarity-score">Click "Find similar talk" button</span>
                                 </div>
-                                <br><span>( 0 = The talks are completely unrelated in content or meaning )</span><br>
-                                <br><span>( 1 = The talks are nearly identical in content and meaning )</span>
                             </div>
                             <div>
                                 <button id="next-node-btn">
@@ -114,13 +126,13 @@
                                 <button id="confirm-node-btn">
                                     Go to talk
                                 </button>
+                                <br>
+                                <button id="prev-node-btn">
+                                    Previous talk
+                                </button>
                             </div>
-                            <hr>
                         </div>
                     </div>
-                    <button id="prev-node-btn">
-                        Previous talk
-                    </button>
                 </div>
             </div>
         </div>
